@@ -1,0 +1,559 @@
+<title>Galgje met Pia</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: same look as Overhoren. Gallows card left, play card right on desktop; stacked on phones */
+:root{
+  --bg:#F4F3F8; --surface:#FFFFFF; --ink:#1C1A2E; --muted:#6A6784; --line:#DDDAE8;
+  --accent:#6B3FD1; --accent-ink:#FFFFFF; --accent-soft:#EEE8FB;
+  --ok:#2E9E5B; --ok-soft:#DFF5E7; --bad:#D9463A; --bad-soft:#FBE3E0; --warn:#B8790A; --warn-soft:#FDF1D6;
+  --shadow:0 10px 30px rgba(40,30,90,.10);
+  --display:"Fredoka","Trebuchet MS",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible","Verdana",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16142A; --surface:#221F3A; --ink:#EFEDF7; --muted:#A5A1BD; --line:#3A3656;
+    --accent:#A88BF0; --accent-ink:#16142A; --accent-soft:#2E2750;
+    --ok:#5FCF8A; --ok-soft:#1F3A2C; --bad:#F07A6E; --bad-soft:#452527; --warn:#F0BE55; --warn-soft:#423519;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16142A; --surface:#221F3A; --ink:#EFEDF7; --muted:#A5A1BD; --line:#3A3656;
+  --accent:#A88BF0; --accent-ink:#16142A; --accent-soft:#2E2750;
+  --ok:#5FCF8A; --ok-soft:#1F3A2C; --bad:#F07A6E; --bad-soft:#452527; --warn:#F0BE55; --warn-soft:#423519;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.45;
+  padding-inline:16px;padding-block:20px 40px;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.page{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--display);font-weight:600;font-size:2rem;line-height:1.15;margin:0;text-wrap:balance}
+p{margin:0}
+
+header{display:flex;align-items:baseline;justify-content:space-between;gap:8px 12px;flex-wrap:wrap}
+.status{font-size:.85rem;color:var(--muted);display:inline-flex;align-items:center;gap:8px}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status[data-mode="live"]{color:var(--ok)}
+.status[data-mode="live"]::before{background:var(--ok)}
+.status[data-mode="local"]::before{background:var(--warn)}
+
+.card{background:var(--surface);border-radius:20px;padding:22px;box-shadow:var(--shadow)}
+.eyebrow{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+
+/* Game grid */
+.board{
+  display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);
+  grid-template-areas:"gallows info" "gallows word" "gallows result" "gallows keys" "gallows extras";
+  grid-template-rows:auto auto auto auto 1fr;
+  gap:18px 24px;align-items:start;
+}
+.gallows{grid-area:gallows;display:flex;flex-direction:column;gap:6px;align-items:center}
+.info{grid-area:info;display:flex;flex-direction:column;gap:10px;min-width:0}
+.word{grid-area:word}
+.result{grid-area:result}
+.keys{grid-area:keys}
+.extras{grid-area:extras;display:flex;flex-direction:column;gap:12px;min-width:0}
+
+.gallows svg{width:100%;max-width:240px;height:auto;display:block}
+/* Gallows illustration: hill, wooden frame, rope, a purple stick figure */
+.gallows{--hill:var(--ok-soft);--hill-edge:var(--ok);--wood:#D19A62;--wood-edge:#9C6838;--rope:#C9A46A;--man:var(--accent);--cheek:var(--bad-soft)}
+.part{opacity:0;transform:scale(.4);transform-box:fill-box;transform-origin:50% 100%;transition:opacity .2s}
+.part.on{opacity:1;transform:none}
+.part.draw{animation:grow .45s cubic-bezier(.3,1.5,.6,1)}
+@keyframes grow{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+.part.x{transform-origin:0 50%}
+.part.top{transform-origin:50% 0}
+.hill{fill:var(--hill);stroke:var(--hill-edge);stroke-width:2}
+.wood{fill:var(--wood);stroke:var(--wood-edge);stroke-width:1.5;stroke-linejoin:round}
+.wood-line{stroke:var(--wood-edge);stroke-width:1.25;stroke-linecap:round;opacity:.45}
+.brace{stroke:var(--wood);stroke-width:5;stroke-linecap:round}
+.brace-edge{stroke:var(--wood-edge);stroke-width:8;stroke-linecap:round}
+.rope{fill:none;stroke:var(--rope);stroke-width:2.5;stroke-linecap:round}
+.noose{opacity:0;transition:opacity .2s}
+.man:has(.rope-part.on) .noose{opacity:1}
+.coil{fill:var(--rope);stroke:var(--wood-edge);stroke-width:1.25}
+.coil-line{stroke:var(--wood-edge);stroke-width:1.1;stroke-linecap:round;opacity:.7}
+.head{fill:var(--surface);stroke:var(--man);stroke-width:3.5}
+.limb{fill:none;stroke:var(--man);stroke-width:4.5;stroke-linecap:round}
+.face{opacity:0;transition:opacity .3s}
+.face.on{opacity:1}
+.eye{fill:var(--ink)}
+.mouth,.xeye{fill:none;stroke:var(--ink);stroke-width:2.25;stroke-linecap:round}
+.cheek{fill:var(--cheek)}
+.dead{--man:var(--bad)}
+.dead .head{fill:var(--bad-soft)}
+.man{transform-box:view-box;transform-origin:140px 28px}
+.dead .man{animation:swing 2.4s ease-in-out 2}
+.won .man{animation:hop .5s ease-out 3}
+@keyframes swing{0%,100%{transform:rotate(0)}25%{transform:rotate(5deg)}75%{transform:rotate(-5deg)}}
+@keyframes hop{0%,100%{transform:none}50%{transform:translateY(-8px)}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .gallows{--wood:#9A6E48;--wood-edge:#C99A6C;--rope:#BFA06E}}
+:root[data-theme="dark"] .gallows{--wood:#9A6E48;--wood-edge:#C99A6C;--rope:#BFA06E}
+
+.counter{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:240px}
+.counter .num{font-family:var(--display);font-weight:600;font-size:1.25rem;font-variant-numeric:tabular-nums}
+.counter .num b{color:var(--bad)}
+.bar{height:10px;width:100%;background:var(--line);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--bad);border-radius:999px;transition:width .3s ease}
+
+.hint{font-size:.95rem;color:var(--muted)}
+.hint strong{color:var(--ink)}
+
+/* Letter size follows the longest word (--n letters) so it always fits on one line */
+.word{container-type:inline-size;min-width:0;display:flex;flex-wrap:wrap;gap:12px 16px;font-family:var(--display)}
+.wordpart{display:flex;gap:.22em;font-size:min(2.6rem,calc(100cqi / (var(--n,8) * 1.4)))}
+.slot{width:1.15em;text-align:center;font-size:1em;font-weight:600;line-height:1.25;border-bottom:max(3px,.09em) solid var(--line)}
+.slot.got{border-bottom-color:var(--accent)}
+.slot.sep{border-bottom-color:transparent;width:auto}
+.slot.missed{color:var(--bad);border-bottom-color:var(--bad)}
+.slot.pop{animation:pop .35s ease-out}
+@keyframes pop{0%{transform:translateY(6px) scale(.9);opacity:0}100%{transform:none;opacity:1}}
+
+.wrongs{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.wrongs .eyebrow{width:100%}
+.wrongs .l,.wrongs .none{height:30px;display:inline-flex;align-items:center;line-height:1}
+.wrongs .l{font-family:var(--display);font-weight:600;font-size:1.05rem;min-width:2rem;justify-content:center;padding:0 10px;border-radius:999px;background:var(--bad-soft);color:var(--bad)}
+.wrongs .none{color:var(--muted)}
+
+.keys{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;justify-content:center;gap:6px}
+.key{
+  flex:1 1 0;max-width:48px;min-width:0;height:52px;padding:0;
+  font-family:var(--display);font-size:1.3rem;font-weight:600;
+  background:var(--surface);color:var(--ink);border:2px solid var(--line);border-radius:12px;
+  cursor:pointer;transition:transform .08s ease,background .15s;
+}
+.key:hover:not(:disabled){border-color:var(--accent)}
+.key:active:not(:disabled){transform:scale(.94)}
+.key:disabled{cursor:default}
+.key.hit{background:var(--ok-soft);border-color:var(--ok)}
+.key.miss{background:var(--bad-soft);border-color:transparent;color:var(--bad);text-decoration:line-through}
+.keys.locked .key:not(.hit):not(.miss){opacity:.45}
+
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.btn{font:inherit;font-weight:700;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:14px;padding:12px 18px;cursor:pointer;transition:transform .08s ease,background .15s}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.big{font-family:var(--display);font-weight:600;font-size:1.25rem;padding:16px 20px;width:100%}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.linkbtn{font:inherit;background:none;border:0;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px;font-weight:700}
+
+.result{font-family:var(--display);font-weight:600;font-size:1.4rem;line-height:1.25;padding:14px 16px;border-radius:14px}
+.result.won{background:var(--ok-soft)}
+.result.lost{background:var(--bad-soft)}
+.result em{font-style:normal;color:var(--accent);letter-spacing:.04em}
+
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.actions>.btn{flex:1 1 140px}
+.setterbox{font-size:.95rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;background:var(--accent-soft);border-radius:14px;padding:10px 14px}
+.setterbox code{font-family:var(--display);font-weight:600;font-size:1.1rem;color:var(--ink);letter-spacing:.06em}
+
+/* Setup */
+.setup{max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.setup .lead{color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:8px}
+.label{font-weight:700;font-size:.95rem}
+.inputrow{display:flex;gap:8px}
+.inputrow .btn{flex:0 0 auto}
+.field input{flex:1;min-width:0;font:inherit;font-size:1.15rem;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:12px 14px;width:100%}
+.field input#wordInput{font-family:var(--display);font-weight:600;letter-spacing:.06em}
+.err{color:var(--bad);font-size:.95rem;min-height:1.4em}
+
+/* Phones: one screen. Gallows and info side by side, word full width, keyboard at thumb height */
+@media (max-width:720px){
+  body{padding-block:12px 16px}
+  .page{gap:12px}
+  h1{font-size:1.7rem}
+  .card{padding:16px;border-radius:18px}
+  .board{
+    grid-template-columns:minmax(0,40%) minmax(0,1fr);
+    grid-template-areas:"gallows info" "word word" "result result" "keys keys" "extras extras";
+    grid-template-rows:auto;gap:14px;
+  }
+  .gallows svg{max-width:150px}
+  .counter .num{font-size:1.05rem}
+  .info{align-self:center}
+  .keys{
+    position:sticky;bottom:0;z-index:1;
+    margin-inline:-16px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
+    background:var(--surface);border-radius:0 0 18px 18px;gap:7px;
+  }
+  .row{gap:5px}
+  .key{max-width:none;height:50px;font-size:1.25rem;border-radius:10px}
+  .row:nth-child(2){padding-inline:5%}
+  .row:nth-child(3){padding-inline:15%}
+  .result{font-size:1.2rem}
+}
+@media (prefers-reduced-motion:reduce){
+  .part.draw,.slot.pop,.man{animation:none!important}
+  *{transition:none!important}
+}
+</style>
+
+<div class="page">
+  <header>
+    <h1>Galgje</h1>
+    <span class="status" id="status" data-mode="connecting">Verbinden…</span>
+  </header>
+
+  <!-- Setup: one player chooses the word -->
+  <section class="setup card" id="setup" hidden>
+    <div>
+      <span class="eyebrow">Nieuw spel</span>
+      <p class="lead">Kies een woord en laat de ander raden. Iedereen met deze pagina open ziet hetzelfde spel. Tien foute letters en het mannetje hangt.</p>
+    </div>
+    <form id="setupForm" class="setup" autocomplete="off">
+      <div class="field">
+        <label class="label" for="wordInput">Geheim woord</label>
+        <div class="inputrow">
+          <input id="wordInput" type="password" maxlength="40" spellcheck="false" autocapitalize="characters" placeholder="bijv. zonnebloem">
+          <button type="button" class="btn" id="peek" aria-pressed="false">Toon</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="hintInput">Hint (mag leeg blijven)</label>
+        <input id="hintInput" type="text" maxlength="60" placeholder="bijv. bloem, dier, vakantieland">
+      </div>
+      <p class="err" id="setupErr" role="alert"></p>
+      <button class="btn primary big" type="submit" id="startBtn">Start het spel</button>
+    </form>
+  </section>
+
+  <!-- Game -->
+  <section class="board card" id="game" hidden>
+    <div class="gallows" id="gallows">
+      <svg viewBox="0 0 200 220" role="img" aria-labelledby="gallowsLabel">
+        <title id="gallowsLabel">Galg</title>
+        <!-- 1 hill -->
+        <path class="part hill" d="M6 214 C30 186 170 186 194 214 Z"/>
+        <!-- 2 pole -->
+        <g class="part"><rect class="wood" x="43" y="20" width="9" height="182" rx="4.5"/><path class="wood-line" d="M47.5 40 V70 M47.5 120 V160"/></g>
+        <!-- 3 beam with brace -->
+        <g class="part x"><path class="brace-edge" d="M50 64 L86 25"/><path class="brace" d="M50 64 L86 25"/><rect class="wood" x="37" y="16" width="117" height="9" rx="4.5"/><path class="wood-line" d="M70 20.5 H100 M120 20.5 H138"/></g>
+        <g class="man">
+          <!-- 4 rope -->
+          <g class="part top rope-part"><path class="rope" d="M140 25 V38"/><path class="rope" d="M137.5 56 C131 70 129 91 140 97 C151 91 149 70 142.5 56"/><rect class="coil" x="134.5" y="36" width="11" height="21" rx="3.5"/><path class="coil-line" d="M135.5 40.5 H144.5 M135.5 44.5 H144.5 M135.5 48.5 H144.5 M135.5 52.5 H144.5"/></g>
+          <!-- 5 head -->
+          <g class="part top"><circle class="head" cx="140" cy="76" r="17"/></g>
+          <!-- 6 body -->
+          <path class="part limb top" d="M140 95 V140"/>
+          <!-- 7, 8 arms -->
+          <path class="part limb top" d="M140 106 L119 128"/>
+          <path class="part limb top" d="M140 106 L161 128"/>
+          <!-- 9, 10 legs -->
+          <path class="part limb top" d="M140 140 L125 178"/>
+          <path class="part limb top" d="M140 140 L155 178"/>
+          <!-- noose around the neck, shown with the rope -->
+          <g class="noose"><path class="rope" d="M133 95.5 Q140 99.5 147 95.5"/></g>
+          <g class="face" id="faceAlive"><circle class="eye" cx="134" cy="73" r="2.2"/><circle class="eye" cx="146" cy="73" r="2.2"/><circle class="cheek" cx="129" cy="81" r="3.5"/><circle class="cheek" cx="151" cy="81" r="3.5"/><path class="mouth" d="M135 84 q5 -3 10 0"/></g>
+          <g class="face" id="faceWon"><circle class="eye" cx="134" cy="73" r="2.2"/><circle class="eye" cx="146" cy="73" r="2.2"/><circle class="cheek" cx="129" cy="81" r="3.5"/><circle class="cheek" cx="151" cy="81" r="3.5"/><path class="mouth" d="M133 81 q7 8 14 0"/></g>
+          <g class="face" id="faceDead"><path class="xeye" d="M131 70 l6 6 M137 70 l-6 6 M143 70 l6 6 M149 70 l-6 6"/><path class="mouth" d="M134 86 q3 -3 6 0 q3 3 6 0"/></g>
+        </g>
+      </svg>
+      <div class="counter" id="counter"></div>
+    </div>
+
+    <div class="info">
+      <p class="hint" id="hint" hidden></p>
+      <div class="wrongs" id="wrongs"></div>
+    </div>
+    <div class="word" id="word" aria-live="polite"></div>
+    <p class="result" id="result" hidden></p>
+    <div class="keys" id="keys"></div>
+    <div class="extras">
+      <div class="setterbox" id="setterbox" hidden>
+        <span>Jij hebt dit woord gekozen.</span>
+        <button class="linkbtn" type="button" id="revealBtn">Laat zien</button>
+        <code id="setterWord" hidden></code>
+      </div>
+      <div class="actions" id="actions"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const MAX = 10;
+  const ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+  const $ = (id) => document.getElementById(id);
+
+  let state = null;          // { word (encoded), hint, guessed: [], setter, round }
+  let mode = "connecting";   // connecting | live | local
+  let ref = null, me = null, readOnly = false;
+  let writing = Promise.resolve();
+  let drawn = 0, shownLetters = new Set(), lastRound = null, confirmReset = false;
+
+  // ---------- helpers ----------
+  const isLetter = (c) => c >= "A" && c <= "Z";
+  const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim().replace(/\s+/g, " ");
+  // Light scramble so the word isn't readable at a glance in stored data.
+  const enc = (w) => btoa(unescape(encodeURIComponent(w))).split("").reverse().join("");
+  const dec = (s) => { try { return decodeURIComponent(escape(atob(s.split("").reverse().join("")))); } catch { return ""; } };
+
+  function derive(s) {
+    const word = dec(s.word);
+    const letters = new Set([...word].filter(isLetter));
+    const guessed = new Set(s.guessed);
+    const wrong = s.guessed.filter((l) => !letters.has(l));
+    const won = letters.size > 0 && [...letters].every((l) => guessed.has(l));
+    const lost = !won && wrong.length >= MAX;
+    return { word, letters, guessed, wrong, won, lost, over: won || lost };
+  }
+
+  function fromDoc(d) {
+    if (!d || typeof d.word !== "string" || !dec(d.word)) return null;
+    return {
+      word: d.word,
+      hint: typeof d.hint === "string" ? d.hint.slice(0, 60) : "",
+      guessed: Array.isArray(d.guessed) ? d.guessed.filter((l) => typeof l === "string" && l.length === 1 && isLetter(l)) : [],
+      setter: typeof d.setter === "string" ? d.setter : null,
+      round: typeof d.round === "number" ? d.round : 0,
+    };
+  }
+
+  function setStatus() {
+    const el = $("status");
+    el.dataset.mode = mode;
+    el.textContent = mode === "live" ? (readOnly ? "Live · alleen meekijken" : "Live gedeeld")
+      : mode === "local" ? "Alleen dit apparaat" : "Verbinden…";
+  }
+
+  // ---------- persistence ----------
+  function commit(next) {
+    state = next;
+    render();
+    if (mode !== "live" || !ref) return;
+    writing = writing
+      .then(() => (next ? ref.set(next) : ref.delete()))
+      .catch((e) => {
+        if (e && (e.code === "invalid_argument" || e.code === "not_granted")) {
+          readOnly = true; setStatus(); render();
+        }
+      });
+  }
+
+  async function connect() {
+    const c = window.claude;
+    if (!c || typeof c.use !== "function") return goLocal();
+    try {
+      const [db, user] = await Promise.all([c.use("db"), c.use("user")]);
+      if (!db) return goLocal();
+      if (user) {
+        me = await user.id();
+        if ((await user.can("data.write")) === false) readOnly = true;
+      }
+      ref = db.doc("games/current");
+      const pending = state;
+      let first = true;
+      mode = "live"; setStatus();
+      ref.onSnapshot((snap) => {
+        const remote = snap.exists ? fromDoc(snap.data()) : null;
+        if (first) {
+          first = false;
+          // A game started before the connection came up gets shared if nothing is there yet.
+          if (!remote && pending && !readOnly) { commit(pending); return; }
+        }
+        state = remote;
+        render();
+      }, () => { mode = "local"; ref = null; setStatus(); });
+    } catch { goLocal(); }
+  }
+  function goLocal() { mode = "local"; setStatus(); render(); }
+
+  // ---------- actions ----------
+  function startGame(raw, hint) {
+    const word = norm(raw);
+    const letters = [...word].filter(isLetter);
+    if (letters.length < 2) return "Typ een woord met minstens twee letters.";
+    if (/[^A-Z \-']/.test(word)) return "Gebruik alleen letters, spaties, streepjes of een apostrof.";
+    commit({ word: enc(word), hint: hint.trim(), guessed: [], setter: me, round: Date.now() });
+    return "";
+  }
+
+  function guess(l) {
+    if (!state || readOnly) return;
+    const d = derive(state);
+    if (d.over || d.guessed.has(l)) return;
+    // A short buzz on a wrong guess (Android; iOS ignores it)
+    if (!d.letters.has(l)) { try { navigator.vibrate?.(60); } catch {} }
+    commit({ ...state, guessed: [...state.guessed, l] });
+  }
+
+  function newGame() { confirmReset = false; commit(null); }
+
+  // ---------- render ----------
+  function buildKeys() {
+    const wrap = $("keys");
+    ROWS.forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      [...r].forEach((l) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "key"; b.textContent = l; b.dataset.l = l;
+        b.setAttribute("aria-label", "Letter " + l);
+        b.addEventListener("click", () => guess(l));
+        row.appendChild(b);
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  function render() {
+    setStatus();
+    const setupEl = $("setup"), gameEl = $("game");
+    if (!state) {
+      setupEl.hidden = false; gameEl.hidden = true;
+      $("startBtn").disabled = readOnly;
+      $("setupErr").textContent = readOnly ? "Je kunt meekijken, maar geen woord kiezen. Vraag de eigenaar om je als bewerker toe te voegen." : "";
+      lastRound = null;
+      return;
+    }
+    setupEl.hidden = true; gameEl.hidden = false;
+    const d = derive(state);
+    const fresh = state.round !== lastRound;
+    if (fresh) { lastRound = state.round; drawn = 0; shownLetters = new Set(); $("setterWord").hidden = true; $("revealBtn").textContent = "Laat zien"; }
+
+    // Hint
+    $("hint").hidden = !state.hint;
+    $("hint").innerHTML = "";
+    if (state.hint) { $("hint").append("Hint: "); const s = document.createElement("strong"); s.textContent = state.hint; $("hint").append(s); }
+
+    // Word slots, grouped per word so line breaks fall between words
+    const wordEl = $("word");
+    wordEl.innerHTML = "";
+    wordEl.style.setProperty("--n", Math.max(6, ...d.word.split(" ").map((p) => p.length)));
+    let group = null;
+    const newGroup = () => { group = document.createElement("div"); group.className = "wordpart"; wordEl.appendChild(group); };
+    newGroup();
+    [...d.word].forEach((c, i) => {
+      if (c === " ") { newGroup(); return; }
+      const s = document.createElement("span");
+      s.className = "slot";
+      if (!isLetter(c)) { s.classList.add("sep"); s.textContent = c; }
+      else if (d.guessed.has(c)) {
+        s.textContent = c;
+        s.classList.add("got"); if (!fresh && !shownLetters.has(c)) s.classList.add("pop");
+      } else if (d.lost) { s.textContent = c; s.classList.add("missed"); }
+      else s.textContent = " ";
+      group.appendChild(s);
+    });
+    d.guessed.forEach((l) => shownLetters.add(l));
+    const hiddenCount = [...d.letters].filter((l) => !d.guessed.has(l)).length;
+    wordEl.setAttribute("aria-label", `Woord van ${[...d.word].filter(isLetter).length} letters, nog ${hiddenCount} verschillende letters te raden`);
+
+    // Wrong letters
+    const w = $("wrongs");
+    w.innerHTML = '<span class="eyebrow">Al fout geraden</span>';
+    if (!d.wrong.length) { const n = document.createElement("span"); n.className = "none"; n.textContent = "nog niets"; w.appendChild(n); }
+    d.wrong.forEach((l) => { const s = document.createElement("span"); s.className = "l"; s.textContent = l; w.appendChild(s); });
+
+    // Gallows
+    const parts = document.querySelectorAll("#gallows .part");
+    const n = Math.min(d.wrong.length, MAX);
+    parts.forEach((p, i) => {
+      const on = i < n;
+      p.classList.toggle("on", on);
+      p.classList.remove("draw");
+      if (on && i >= drawn && !fresh) { void p.getBoundingClientRect(); p.classList.add("draw"); }
+    });
+    drawn = n;
+    const headOn = n >= 5;
+    $("faceAlive").classList.toggle("on", headOn && !d.over);
+    $("faceWon").classList.toggle("on", headOn && d.won);
+    $("faceDead").classList.toggle("on", d.lost);
+    $("gallows").classList.toggle("dead", d.lost);
+    $("gallows").classList.toggle("won", d.won);
+    $("gallowsLabel").textContent = `Galg: ${n} van ${MAX} onderdelen getekend`;
+    $("counter").innerHTML = `<span class="num"><b>${n}</b> / ${MAX} fout</span><span class="bar"><i style="width:${n / MAX * 100}%"></i></span>`;
+
+    // Keyboard
+    const keysEl = $("keys");
+    keysEl.classList.toggle("locked", readOnly);
+    keysEl.hidden = d.over;
+    keysEl.querySelectorAll(".key").forEach((b) => {
+      const l = b.dataset.l, used = d.guessed.has(l);
+      b.classList.toggle("hit", used && d.letters.has(l));
+      b.classList.toggle("miss", used && !d.letters.has(l));
+      b.disabled = used || d.over || readOnly;
+    });
+
+    // Result
+    const r = $("result");
+    r.hidden = !d.over;
+    r.className = "result" + (d.won ? " won" : d.lost ? " lost" : "");
+    if (d.over) {
+      r.innerHTML = "";
+      r.append(d.won ? `Geraden, met ${d.wrong.length} ${d.wrong.length === 1 ? "fout" : "fouten"}! Het woord was ` : "Het mannetje is dood. Het woord was ");
+      const em = document.createElement("em"); em.textContent = d.word; r.append(em, ".");
+    }
+
+    // Setter can peek at their own word (live mode only, where we know who chose it)
+    $("setterbox").hidden = d.over || !(mode === "live" && me && state.setter === me);
+    $("setterWord").textContent = d.word;
+
+    // Actions
+    const a = $("actions");
+    a.innerHTML = "";
+    if (readOnly) return;
+    if (d.over) {
+      const b = document.createElement("button");
+      b.className = "btn primary big"; b.type = "button"; b.textContent = "Nieuw woord kiezen";
+      b.addEventListener("click", newGame);
+      a.appendChild(b);
+    } else if (confirmReset) {
+      const span = document.createElement("span"); span.textContent = "Dit spel stoppen?";
+      const yes = document.createElement("button"); yes.className = "btn danger"; yes.type = "button"; yes.textContent = "Ja, stoppen";
+      yes.addEventListener("click", newGame);
+      const no = document.createElement("button"); no.className = "btn"; no.type = "button"; no.textContent = "Doorspelen";
+      no.addEventListener("click", () => { confirmReset = false; render(); });
+      a.append(span, yes, no);
+    } else {
+      const b = document.createElement("button");
+      b.className = "linkbtn"; b.type = "button"; b.textContent = "Stoppen en nieuw woord kiezen";
+      b.addEventListener("click", () => { confirmReset = true; render(); });
+      a.appendChild(b);
+    }
+  }
+
+  // ---------- wiring ----------
+  buildKeys();
+
+  $("setupForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const err = startGame($("wordInput").value, $("hintInput").value);
+    $("setupErr").textContent = err;
+    if (!err) { $("wordInput").value = ""; $("hintInput").value = ""; $("wordInput").type = "password"; $("peek").textContent = "Toon"; $("peek").setAttribute("aria-pressed", "false"); }
+  });
+
+  $("peek").addEventListener("click", () => {
+    const inp = $("wordInput"), show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    $("peek").textContent = show ? "Verberg" : "Toon";
+    $("peek").setAttribute("aria-pressed", String(show));
+  });
+
+  $("revealBtn").addEventListener("click", () => {
+    const c = $("setterWord"); c.hidden = !c.hidden;
+    $("revealBtn").textContent = c.hidden ? "Laat zien" : "Verberg";
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!state || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement) return;
+    const l = e.key.length === 1 ? e.key.toUpperCase() : "";
+    if (isLetter(l)) guess(l);
+  });
+
+  render();
+  connect();
+})();
+</script>
