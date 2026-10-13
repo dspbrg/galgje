@@ -157,8 +157,22 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .setterbox{font-size:.95rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;background:var(--accent-soft);border-radius:14px;padding:10px 14px}
 .setterbox code{font-family:var(--display);font-weight:600;font-size:1.1rem;color:var(--ink);letter-spacing:.06em}
 
-/* Setup */
-.setup{max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+/* Setup: two cards, play together or alone */
+.setupwrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:18px;align-items:start}
+.setup{width:100%;display:flex;flex-direction:column;gap:16px}
+.lists{display:flex;flex-direction:column;gap:10px}
+.listbtn{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px;text-align:left;font:inherit;color:var(--ink);background:var(--surface);border:2px solid var(--line);border-radius:16px;padding:12px 16px;cursor:pointer}
+.listbtn:hover{border-color:var(--accent)}
+.listbtn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.listbtn .subj{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--accent)}
+.listbtn .t{font-family:var(--display);font-weight:600;font-size:1.15rem;line-height:1.2}
+.listbtn .cnt{grid-row:1/3;grid-column:2;font-family:var(--display);font-weight:600;font-size:1.4rem;color:var(--muted);text-align:right;line-height:1}
+.listbtn .cnt small{display:block;font-family:var(--body);font-weight:400;font-size:.75rem}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{font:inherit;font-weight:700;font-size:.95rem;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.score{font-size:.9rem;color:var(--muted)}
+.score b{color:var(--ink);font-variant-numeric:tabular-nums}
 .setup .lead{color:var(--muted)}
 .field{display:flex;flex-direction:column;gap:8px}
 .label{font-weight:700;font-size:.95rem}
@@ -206,9 +220,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   </header>
 
   <!-- Setup: one player chooses the word -->
-  <section class="setup card" id="setup" hidden>
+  <div class="setupwrap" id="setup" hidden>
+  <section class="setup card">
     <div>
-      <span class="eyebrow">Nieuw spel</span>
+      <span class="eyebrow">Samen spelen</span>
       <p class="lead">Kies een woord en laat de ander raden. Iedereen met deze pagina open ziet hetzelfde spel. Tien foute letters en het mannetje hangt.</p>
     </div>
     <form id="setupForm" class="setup" autocomplete="off">
@@ -227,6 +242,21 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
       <button class="btn primary big" type="submit" id="startBtn">Start het spel</button>
     </form>
   </section>
+
+  <!-- Solo: words from the Overhoren lists -->
+  <section class="setup card" id="soloCard">
+    <div>
+      <span class="eyebrow">Alleen spelen</span>
+      <p class="lead">Raad woorden uit je Overhoren-lijsten. De betekenis staat erbij als hint, zo oefen je meteen je woordjes.</p>
+    </div>
+    <div class="lists" id="lists"></div>
+    <div class="field" id="sectionField" hidden>
+      <span class="label">Welk deel?</span>
+      <div class="seg" id="sectionSeg"></div>
+    </div>
+    <button class="btn primary big" type="button" id="soloStart">Start met een woord</button>
+  </section>
+  </div>
 
   <!-- Game -->
   <section class="board card" id="game" hidden>
@@ -263,6 +293,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     </div>
 
     <div class="info">
+      <p class="score" id="score" hidden></p>
       <p class="hint" id="hint" hidden></p>
       <div class="wrongs" id="wrongs"></div>
     </div>
@@ -291,6 +322,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   let ref = null, me = null, readOnly = false;
   let writing = Promise.resolve();
   let drawn = 0, shownLetters = new Set(), lastRound = null, confirmReset = false;
+
+  // Word lists copied from the Overhoren app (w = word, d = meaning, c = word class, s = section)
+  const LISTS = [{"id":"horrid-henry-1tto","title":"Horrid Henry wordlist","subject":"Engels","mode":"three","sections":null,"items":[{"w":"Glared","d":"To look at someone in an angry way.","c":"Verb"},{"w":"Collided","d":"To hit something violently.","c":"Verb"},{"w":"Sensible","d":"Wise and showing good judgment.","c":"Adjective"},{"w":"Guzzle","d":"To eat food or drink quickly and in large amounts.","c":"Verb"},{"w":"Leap","d":"To move suddenly.","c":"Verb"},{"w":"Bothered","d":"When something is important to you and you are worried about it.","c":"Adjective"},{"w":"Barked","d":"To shout at someone in an unfriendly way.","c":"Verb"},{"w":"Suggested","d":"To mention an idea.","c":"Verb"},{"w":"Roaring","d":"Loud and powerful noise.","c":"Adjective"},{"w":"Detected","d":"To discover something.","c":"Verb"},{"w":"Gobbled","d":"To eat food too fast.","c":"Verb"},{"w":"Trophy","d":"A prize that is given to the winner of a competition.","c":"Noun"},{"w":"Brilliance","d":"Being extremely intelligent or skilful.","c":"Noun"},{"w":"Gleaming","d":"Bright and shiny from being cleaned.","c":"Adjective"},{"w":"Trainers","d":"Training shoes / sneakers.","c":"Noun"},{"w":"Frantically","d":"Done in a hurried and chaotic way.","c":"Adverb"},{"w":"Severely","d":"Very seriously.","c":"Adverb"},{"w":"Anxious","d":"Feeling worried and nervous.","c":"Adjective"},{"w":"Crept","d":"To move slowly, quietly and carefully.","c":"Verb"},{"w":"Sweaty","d":"Covered in sweat.","c":"Adjective"},{"w":"Exhausting","d":"Making you feel extremely tired.","c":"Adjective"},{"w":"Ancient","d":"From a long time ago / very old.","c":"Adjective"},{"w":"Rival","d":"A person competing.","c":"Noun"},{"w":"Topple","d":"To lose balance and fall over.","c":"Verb"},{"w":"Hesitated","d":"To pause before you do or say something.","c":"Verb"}]},{"id":"frans-arret-apprendre","title":"Arrêt Apprendre","subject":"Frans","mode":"translate","sections":{"A":"In de klas","B":"Opdrachten","C":"Getallen 1 tot 20","D":"Dagen en huiswerk"},"items":[{"w":"le français","d":"het Frans","s":"A"},{"w":"le prof","d":"de docent","s":"A"},{"w":"l'exercice (m)","d":"de opdracht","s":"A"},{"w":"oui","d":"ja","s":"A"},{"w":"non","d":"nee","s":"A"},{"w":"bonjour","d":"hallo, goedendag","s":"A"},{"w":"au revoir","d":"tot ziens","s":"A"},{"w":"très bien","d":"heel goed","s":"A"},{"w":"merci","d":"bedankt","s":"A"},{"w":"c'est","d":"het is","s":"A"},{"w":"Comment tu t'appelles ?","d":"Hoe heet jij?","s":"A"},{"w":"Je m'appelle Léo.","d":"Ik heet Léo.","s":"A"},{"w":"Je ne sais pas.","d":"Ik weet het niet.","s":"A"},{"w":"écoute","d":"luister","s":"B"},{"w":"regarde","d":"kijk naar","s":"B"},{"w":"lis","d":"lees","s":"B"},{"w":"écris","d":"schrijf","s":"B"},{"w":"parle","d":"spreek","s":"B"},{"w":"répète","d":"herhaal","s":"B"},{"w":"réponds","d":"geef antwoord","s":"B"},{"w":"le livre","d":"het boek","s":"B"},{"w":"l'ordinateur (m)","d":"de computer","s":"B"},{"w":"le stylo","d":"de pen","s":"B"},{"w":"l'école (v)","d":"de school","s":"B"},{"w":"prends","d":"pak, neem","s":"B"},{"w":"ouvre","d":"open","s":"B"},{"w":"ferme","d":"sluit","s":"B"},{"w":"cherche","d":"zoek","s":"B"},{"w":"choisis","d":"kies","s":"B"},{"w":"C'est quoi ?","d":"Wat is het?","s":"B"},{"w":"Je ne comprends pas.","d":"Ik begrijp het niet.","s":"B"},{"w":"Prends le livre.","d":"Pak het boek.","s":"B"},{"w":"un","d":"één / een","s":"C"},{"w":"deux","d":"twee","s":"C"},{"w":"trois","d":"drie","s":"C"},{"w":"quatre","d":"vier","s":"C"},{"w":"cinq","d":"vijf","s":"C"},{"w":"six","d":"zes","s":"C"},{"w":"sept","d":"zeven","s":"C"},{"w":"huit","d":"acht","s":"C"},{"w":"neuf","d":"negen","s":"C"},{"w":"dix","d":"tien","s":"C"},{"w":"onze","d":"elf","s":"C"},{"w":"douze","d":"twaalf","s":"C"},{"w":"treize","d":"dertien","s":"C"},{"w":"quatorze","d":"veertien","s":"C"},{"w":"quinze","d":"vijftien","s":"C"},{"w":"seize","d":"zestien","s":"C"},{"w":"dix-sept","d":"zeventien","s":"C"},{"w":"dix-huit","d":"achttien","s":"C"},{"w":"dix-neuf","d":"negentien","s":"C"},{"w":"vingt","d":"twintig","s":"C"},{"w":"lundi","d":"maandag","s":"D"},{"w":"mardi","d":"dinsdag","s":"D"},{"w":"mercredi","d":"woensdag","s":"D"},{"w":"jeudi","d":"donderdag","s":"D"},{"w":"vendredi","d":"vrijdag","s":"D"},{"w":"samedi","d":"zaterdag","s":"D"},{"w":"dimanche","d":"zondag","s":"D"},{"w":"aujourd'hui","d":"vandaag","s":"D"},{"w":"apprends","d":"leer","s":"D"},{"w":"fais","d":"doe / maak","s":"D"},{"w":"travaille","d":"werk","s":"D"},{"w":"complète","d":"vul in / vul aan","s":"D"},{"w":"les devoirs","d":"het huiswerk","s":"D"},{"w":"le garçon","d":"de jongen","s":"D"},{"w":"la fille","d":"het meisje","s":"D"},{"w":"la page","d":"de bladzijde","s":"D"},{"w":"le mot","d":"het woord","s":"D"},{"w":"On a des devoirs ?","d":"Hebben we huiswerk?","s":"D"}]}];
+  let solo = null;           // { list, section, game, pool: [], won, played } — this device only
+  let pick = { list: LISTS[0].id, section: "" };
+  const cur = () => (solo ? solo.game : state);
 
   // ---------- helpers ----------
   const isLetter = (c) => c >= "A" && c <= "Z";
@@ -322,6 +359,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
   function setStatus() {
     const el = $("status");
+    if (solo) { el.dataset.mode = "local"; el.textContent = "Alleen jij speelt"; return; }
     el.dataset.mode = mode;
     el.textContent = mode === "live" ? (readOnly ? "Live · alleen meekijken" : "Live gedeeld")
       : mode === "local" ? "Alleen dit apparaat" : "Verbinden…";
@@ -380,15 +418,80 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   }
 
   function guess(l) {
-    if (!state || readOnly) return;
-    const d = derive(state);
+    const g = cur();
+    if (!g || (!solo && readOnly)) return;
+    const d = derive(g);
     if (d.over || d.guessed.has(l)) return;
     // A short buzz on a wrong guess (Android; iOS ignores it)
     if (!d.letters.has(l)) { try { navigator.vibrate?.(60); } catch {} }
-    commit({ ...state, guessed: [...state.guessed, l] });
+    const next = { ...g, guessed: [...g.guessed, l] };
+    if (solo) {
+      solo.game = next;
+      const nd = derive(next);
+      if (nd.over) { solo.played++; if (nd.won) solo.won++; }
+      render();
+    } else commit(next);
   }
 
   function newGame() { confirmReset = false; commit(null); }
+
+  // ---------- solo ----------
+  const cleanWord = (w) => norm(w.replace(/[’]/g, "'").replace(/\(.*?\)/g, "").replace(/[?!.,;:]/g, ""));
+  function soloItems(list, section) {
+    return list.items.filter((it) => {
+      if (section && it.s !== section) return false;
+      const w = cleanWord(it.w);
+      return w.length <= 24 && /^[A-Z][A-Z \-']*$/.test(w) && [...w].filter(isLetter).length >= 3;
+    });
+  }
+  function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function soloNext() {
+    if (!solo.pool.length) solo.pool = shuffle(soloItems(solo.list, solo.section));
+    const it = solo.pool.pop();
+    const hint = it.c ? `${it.c} · ${it.d}` : it.d;
+    solo.game = { word: enc(cleanWord(it.w)), hint, guessed: [], setter: null, round: Date.now() };
+    confirmReset = false;
+    render();
+  }
+  function soloStart() {
+    const list = LISTS.find((l) => l.id === pick.list) || LISTS[0];
+    solo = { list, section: pick.section, game: null, pool: [], won: 0, played: 0 };
+    soloNext();
+  }
+  function soloQuit() { solo = null; confirmReset = false; render(); }
+
+  function renderLists() {
+    const wrap = $("lists");
+    wrap.innerHTML = "";
+    LISTS.forEach((l) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "listbtn";
+      b.setAttribute("aria-pressed", String(pick.list === l.id));
+      const subj = document.createElement("span"); subj.className = "subj"; subj.textContent = l.subject;
+      const t = document.createElement("span"); t.className = "t"; t.textContent = l.title;
+      const cnt = document.createElement("span"); cnt.className = "cnt";
+      cnt.innerHTML = `${soloItems(l, "").length}<small>woorden</small>`;
+      b.append(subj, cnt, t);
+      b.addEventListener("click", () => { pick = { list: l.id, section: "" }; renderLists(); });
+      wrap.appendChild(b);
+    });
+    const list = LISTS.find((l) => l.id === pick.list);
+    const seg = $("sectionSeg");
+    seg.innerHTML = "";
+    $("sectionField").hidden = !list.sections;
+    if (list.sections) {
+      [["", "Alles"], ...Object.entries(list.sections)].forEach(([k, name]) => {
+        const n = soloItems(list, k).length;
+        if (k && !n) return;
+        const b = document.createElement("button");
+        b.type = "button"; b.textContent = name;
+        b.setAttribute("aria-pressed", String(pick.section === k));
+        b.addEventListener("click", () => { pick.section = k; renderLists(); });
+        seg.appendChild(b);
+      });
+    }
+  }
 
   // ---------- render ----------
   function buildKeys() {
@@ -410,7 +513,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   function render() {
     setStatus();
     const setupEl = $("setup"), gameEl = $("game");
-    if (!state) {
+    const g = cur();
+    if (!g) {
       setupEl.hidden = false; gameEl.hidden = true;
       $("startBtn").disabled = readOnly;
       $("setupErr").textContent = readOnly ? "Je kunt meekijken, maar geen woord kiezen. Vraag de eigenaar om je als bewerker toe te voegen." : "";
@@ -418,14 +522,23 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
       return;
     }
     setupEl.hidden = true; gameEl.hidden = false;
-    const d = derive(state);
-    const fresh = state.round !== lastRound;
-    if (fresh) { lastRound = state.round; drawn = 0; shownLetters = new Set(); $("setterWord").hidden = true; $("revealBtn").textContent = "Laat zien"; }
+    const d = derive(g);
+    const fresh = g.round !== lastRound;
+    if (fresh) { lastRound = g.round; drawn = 0; shownLetters = new Set(); $("setterWord").hidden = true; $("revealBtn").textContent = "Laat zien"; }
 
     // Hint
-    $("hint").hidden = !state.hint;
+    $("hint").hidden = !g.hint;
     $("hint").innerHTML = "";
-    if (state.hint) { $("hint").append("Hint: "); const s = document.createElement("strong"); s.textContent = state.hint; $("hint").append(s); }
+    if (g.hint) { $("hint").append(solo ? "Betekenis: " : "Hint: "); const s = document.createElement("strong"); s.textContent = g.hint; $("hint").append(s); }
+
+    // Solo score
+    $("score").hidden = !solo;
+    if (solo) {
+      const part = solo.section && solo.list.sections ? ` · ${solo.list.sections[solo.section]}` : "";
+      $("score").innerHTML = "";
+      $("score").append(`${solo.list.title}${part} · `);
+      const b = document.createElement("b"); b.textContent = `${solo.won} van ${solo.played}`; $("score").append(b, " geraden");
+    }
 
     // Word slots, grouped per word so line breaks fall between words
     const wordEl = $("word");
@@ -477,13 +590,14 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
     // Keyboard
     const keysEl = $("keys");
-    keysEl.classList.toggle("locked", readOnly);
+    const locked = !solo && readOnly;
+    keysEl.classList.toggle("locked", locked);
     keysEl.hidden = d.over;
     keysEl.querySelectorAll(".key").forEach((b) => {
       const l = b.dataset.l, used = d.guessed.has(l);
       b.classList.toggle("hit", used && d.letters.has(l));
       b.classList.toggle("miss", used && !d.letters.has(l));
-      b.disabled = used || d.over || readOnly;
+      b.disabled = used || d.over || locked;
     });
 
     // Result
@@ -497,12 +611,18 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     }
 
     // Setter can peek at their own word (live mode only, where we know who chose it)
-    $("setterbox").hidden = d.over || !(mode === "live" && me && state.setter === me);
+    $("setterbox").hidden = d.over || solo || !(mode === "live" && me && g.setter === me);
     $("setterWord").textContent = d.word;
 
     // Actions
     const a = $("actions");
     a.innerHTML = "";
+    const mk = (cls, text, fn) => { const b = document.createElement("button"); b.className = cls; b.type = "button"; b.textContent = text; b.addEventListener("click", fn); return b; };
+    if (solo) {
+      if (d.over) a.append(mk("btn primary big", "Volgend woord", soloNext), mk("linkbtn", "Terug naar het begin", soloQuit));
+      else a.append(mk("linkbtn", "Sla dit woord over", soloNext), mk("linkbtn", "Terug naar het begin", soloQuit));
+      return;
+    }
     if (readOnly) return;
     if (d.over) {
       const b = document.createElement("button");
@@ -526,6 +646,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
   // ---------- wiring ----------
   buildKeys();
+  renderLists();
 
   $("setupForm").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -541,13 +662,15 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     $("peek").setAttribute("aria-pressed", String(show));
   });
 
+  $("soloStart").addEventListener("click", soloStart);
+
   $("revealBtn").addEventListener("click", () => {
     const c = $("setterWord"); c.hidden = !c.hidden;
     $("revealBtn").textContent = c.hidden ? "Laat zien" : "Verberg";
   });
 
   document.addEventListener("keydown", (e) => {
-    if (!state || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!cur() || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.target instanceof HTMLInputElement) return;
     const l = e.key.length === 1 ? e.key.toUpperCase() : "";
     if (isLetter(l)) guess(l);
