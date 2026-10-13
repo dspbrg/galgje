@@ -27,6 +27,8 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html,body{margin:0;min-height:100%}
 body{
   background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.45;
@@ -224,7 +226,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   <section class="setup card">
     <div>
       <span class="eyebrow">Samen spelen</span>
-      <p class="lead">Kies een woord en laat de ander raden. Iedereen met deze pagina open ziet hetzelfde spel. Tien foute letters en het mannetje hangt.</p>
+      <p class="lead" id="togetherLead">Kies een geheim woord en geef het scherm aan de ander om te raden. Tien foute letters en het mannetje hangt.</p>
     </div>
     <form id="setupForm" class="setup" autocomplete="off">
       <div class="field">
@@ -324,9 +326,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   let drawn = 0, shownLetters = new Set(), lastRound = null, confirmReset = false;
 
   // Word lists copied from the Overhoren app (w = word, d = meaning, c = word class, s = section)
-  const LISTS = [{"id":"horrid-henry-1tto","title":"Horrid Henry wordlist","subject":"Engels","mode":"three","sections":null,"items":[{"w":"Glared","d":"To look at someone in an angry way.","c":"Verb"},{"w":"Collided","d":"To hit something violently.","c":"Verb"},{"w":"Sensible","d":"Wise and showing good judgment.","c":"Adjective"},{"w":"Guzzle","d":"To eat food or drink quickly and in large amounts.","c":"Verb"},{"w":"Leap","d":"To move suddenly.","c":"Verb"},{"w":"Bothered","d":"When something is important to you and you are worried about it.","c":"Adjective"},{"w":"Barked","d":"To shout at someone in an unfriendly way.","c":"Verb"},{"w":"Suggested","d":"To mention an idea.","c":"Verb"},{"w":"Roaring","d":"Loud and powerful noise.","c":"Adjective"},{"w":"Detected","d":"To discover something.","c":"Verb"},{"w":"Gobbled","d":"To eat food too fast.","c":"Verb"},{"w":"Trophy","d":"A prize that is given to the winner of a competition.","c":"Noun"},{"w":"Brilliance","d":"Being extremely intelligent or skilful.","c":"Noun"},{"w":"Gleaming","d":"Bright and shiny from being cleaned.","c":"Adjective"},{"w":"Trainers","d":"Training shoes / sneakers.","c":"Noun"},{"w":"Frantically","d":"Done in a hurried and chaotic way.","c":"Adverb"},{"w":"Severely","d":"Very seriously.","c":"Adverb"},{"w":"Anxious","d":"Feeling worried and nervous.","c":"Adjective"},{"w":"Crept","d":"To move slowly, quietly and carefully.","c":"Verb"},{"w":"Sweaty","d":"Covered in sweat.","c":"Adjective"},{"w":"Exhausting","d":"Making you feel extremely tired.","c":"Adjective"},{"w":"Ancient","d":"From a long time ago / very old.","c":"Adjective"},{"w":"Rival","d":"A person competing.","c":"Noun"},{"w":"Topple","d":"To lose balance and fall over.","c":"Verb"},{"w":"Hesitated","d":"To pause before you do or say something.","c":"Verb"}]},{"id":"frans-arret-apprendre","title":"Arrêt Apprendre","subject":"Frans","mode":"translate","sections":{"A":"In de klas","B":"Opdrachten","C":"Getallen 1 tot 20","D":"Dagen en huiswerk"},"items":[{"w":"le français","d":"het Frans","s":"A"},{"w":"le prof","d":"de docent","s":"A"},{"w":"l'exercice (m)","d":"de opdracht","s":"A"},{"w":"oui","d":"ja","s":"A"},{"w":"non","d":"nee","s":"A"},{"w":"bonjour","d":"hallo, goedendag","s":"A"},{"w":"au revoir","d":"tot ziens","s":"A"},{"w":"très bien","d":"heel goed","s":"A"},{"w":"merci","d":"bedankt","s":"A"},{"w":"c'est","d":"het is","s":"A"},{"w":"Comment tu t'appelles ?","d":"Hoe heet jij?","s":"A"},{"w":"Je m'appelle Léo.","d":"Ik heet Léo.","s":"A"},{"w":"Je ne sais pas.","d":"Ik weet het niet.","s":"A"},{"w":"écoute","d":"luister","s":"B"},{"w":"regarde","d":"kijk naar","s":"B"},{"w":"lis","d":"lees","s":"B"},{"w":"écris","d":"schrijf","s":"B"},{"w":"parle","d":"spreek","s":"B"},{"w":"répète","d":"herhaal","s":"B"},{"w":"réponds","d":"geef antwoord","s":"B"},{"w":"le livre","d":"het boek","s":"B"},{"w":"l'ordinateur (m)","d":"de computer","s":"B"},{"w":"le stylo","d":"de pen","s":"B"},{"w":"l'école (v)","d":"de school","s":"B"},{"w":"prends","d":"pak, neem","s":"B"},{"w":"ouvre","d":"open","s":"B"},{"w":"ferme","d":"sluit","s":"B"},{"w":"cherche","d":"zoek","s":"B"},{"w":"choisis","d":"kies","s":"B"},{"w":"C'est quoi ?","d":"Wat is het?","s":"B"},{"w":"Je ne comprends pas.","d":"Ik begrijp het niet.","s":"B"},{"w":"Prends le livre.","d":"Pak het boek.","s":"B"},{"w":"un","d":"één / een","s":"C"},{"w":"deux","d":"twee","s":"C"},{"w":"trois","d":"drie","s":"C"},{"w":"quatre","d":"vier","s":"C"},{"w":"cinq","d":"vijf","s":"C"},{"w":"six","d":"zes","s":"C"},{"w":"sept","d":"zeven","s":"C"},{"w":"huit","d":"acht","s":"C"},{"w":"neuf","d":"negen","s":"C"},{"w":"dix","d":"tien","s":"C"},{"w":"onze","d":"elf","s":"C"},{"w":"douze","d":"twaalf","s":"C"},{"w":"treize","d":"dertien","s":"C"},{"w":"quatorze","d":"veertien","s":"C"},{"w":"quinze","d":"vijftien","s":"C"},{"w":"seize","d":"zestien","s":"C"},{"w":"dix-sept","d":"zeventien","s":"C"},{"w":"dix-huit","d":"achttien","s":"C"},{"w":"dix-neuf","d":"negentien","s":"C"},{"w":"vingt","d":"twintig","s":"C"},{"w":"lundi","d":"maandag","s":"D"},{"w":"mardi","d":"dinsdag","s":"D"},{"w":"mercredi","d":"woensdag","s":"D"},{"w":"jeudi","d":"donderdag","s":"D"},{"w":"vendredi","d":"vrijdag","s":"D"},{"w":"samedi","d":"zaterdag","s":"D"},{"w":"dimanche","d":"zondag","s":"D"},{"w":"aujourd'hui","d":"vandaag","s":"D"},{"w":"apprends","d":"leer","s":"D"},{"w":"fais","d":"doe / maak","s":"D"},{"w":"travaille","d":"werk","s":"D"},{"w":"complète","d":"vul in / vul aan","s":"D"},{"w":"les devoirs","d":"het huiswerk","s":"D"},{"w":"le garçon","d":"de jongen","s":"D"},{"w":"la fille","d":"het meisje","s":"D"},{"w":"la page","d":"de bladzijde","s":"D"},{"w":"le mot","d":"het woord","s":"D"},{"w":"On a des devoirs ?","d":"Hebben we huiswerk?","s":"D"}]}];
+  // Fallback copy of the Overhoren lists (w = word, d = meaning, c = word class, s = section).
+  // On GitHub Pages the live lists come from /overhoren/lists.js instead.
+  const BUILTIN = [{"id":"horrid-henry-1tto","title":"Horrid Henry wordlist","subject":"Engels","mode":"three","sections":null,"items":[{"w":"Glared","d":"To look at someone in an angry way.","c":"Verb"},{"w":"Collided","d":"To hit something violently.","c":"Verb"},{"w":"Sensible","d":"Wise and showing good judgment.","c":"Adjective"},{"w":"Guzzle","d":"To eat food or drink quickly and in large amounts.","c":"Verb"},{"w":"Leap","d":"To move suddenly.","c":"Verb"},{"w":"Bothered","d":"When something is important to you and you are worried about it.","c":"Adjective"},{"w":"Barked","d":"To shout at someone in an unfriendly way.","c":"Verb"},{"w":"Suggested","d":"To mention an idea.","c":"Verb"},{"w":"Roaring","d":"Loud and powerful noise.","c":"Adjective"},{"w":"Detected","d":"To discover something.","c":"Verb"},{"w":"Gobbled","d":"To eat food too fast.","c":"Verb"},{"w":"Trophy","d":"A prize that is given to the winner of a competition.","c":"Noun"},{"w":"Brilliance","d":"Being extremely intelligent or skilful.","c":"Noun"},{"w":"Gleaming","d":"Bright and shiny from being cleaned.","c":"Adjective"},{"w":"Trainers","d":"Training shoes / sneakers.","c":"Noun"},{"w":"Frantically","d":"Done in a hurried and chaotic way.","c":"Adverb"},{"w":"Severely","d":"Very seriously.","c":"Adverb"},{"w":"Anxious","d":"Feeling worried and nervous.","c":"Adjective"},{"w":"Crept","d":"To move slowly, quietly and carefully.","c":"Verb"},{"w":"Sweaty","d":"Covered in sweat.","c":"Adjective"},{"w":"Exhausting","d":"Making you feel extremely tired.","c":"Adjective"},{"w":"Ancient","d":"From a long time ago / very old.","c":"Adjective"},{"w":"Rival","d":"A person competing.","c":"Noun"},{"w":"Topple","d":"To lose balance and fall over.","c":"Verb"},{"w":"Hesitated","d":"To pause before you do or say something.","c":"Verb"}]},{"id":"frans-arret-apprendre","title":"Arrêt Apprendre","subject":"Frans","mode":"translate","sections":{"A":"In de klas","B":"Opdrachten","C":"Getallen 1 tot 20","D":"Dagen en huiswerk"},"items":[{"w":"le français","d":"het Frans","s":"A"},{"w":"le prof","d":"de docent","s":"A"},{"w":"l'exercice (m)","d":"de opdracht","s":"A"},{"w":"oui","d":"ja","s":"A"},{"w":"non","d":"nee","s":"A"},{"w":"bonjour","d":"hallo, goedendag","s":"A"},{"w":"au revoir","d":"tot ziens","s":"A"},{"w":"très bien","d":"heel goed","s":"A"},{"w":"merci","d":"bedankt","s":"A"},{"w":"c'est","d":"het is","s":"A"},{"w":"Comment tu t'appelles ?","d":"Hoe heet jij?","s":"A"},{"w":"Je m'appelle Léo.","d":"Ik heet Léo.","s":"A"},{"w":"Je ne sais pas.","d":"Ik weet het niet.","s":"A"},{"w":"écoute","d":"luister","s":"B"},{"w":"regarde","d":"kijk naar","s":"B"},{"w":"lis","d":"lees","s":"B"},{"w":"écris","d":"schrijf","s":"B"},{"w":"parle","d":"spreek","s":"B"},{"w":"répète","d":"herhaal","s":"B"},{"w":"réponds","d":"geef antwoord","s":"B"},{"w":"le livre","d":"het boek","s":"B"},{"w":"l'ordinateur (m)","d":"de computer","s":"B"},{"w":"le stylo","d":"de pen","s":"B"},{"w":"l'école (v)","d":"de school","s":"B"},{"w":"prends","d":"pak, neem","s":"B"},{"w":"ouvre","d":"open","s":"B"},{"w":"ferme","d":"sluit","s":"B"},{"w":"cherche","d":"zoek","s":"B"},{"w":"choisis","d":"kies","s":"B"},{"w":"C'est quoi ?","d":"Wat is het?","s":"B"},{"w":"Je ne comprends pas.","d":"Ik begrijp het niet.","s":"B"},{"w":"Prends le livre.","d":"Pak het boek.","s":"B"},{"w":"un","d":"één / een","s":"C"},{"w":"deux","d":"twee","s":"C"},{"w":"trois","d":"drie","s":"C"},{"w":"quatre","d":"vier","s":"C"},{"w":"cinq","d":"vijf","s":"C"},{"w":"six","d":"zes","s":"C"},{"w":"sept","d":"zeven","s":"C"},{"w":"huit","d":"acht","s":"C"},{"w":"neuf","d":"negen","s":"C"},{"w":"dix","d":"tien","s":"C"},{"w":"onze","d":"elf","s":"C"},{"w":"douze","d":"twaalf","s":"C"},{"w":"treize","d":"dertien","s":"C"},{"w":"quatorze","d":"veertien","s":"C"},{"w":"quinze","d":"vijftien","s":"C"},{"w":"seize","d":"zestien","s":"C"},{"w":"dix-sept","d":"zeventien","s":"C"},{"w":"dix-huit","d":"achttien","s":"C"},{"w":"dix-neuf","d":"negentien","s":"C"},{"w":"vingt","d":"twintig","s":"C"},{"w":"lundi","d":"maandag","s":"D"},{"w":"mardi","d":"dinsdag","s":"D"},{"w":"mercredi","d":"woensdag","s":"D"},{"w":"jeudi","d":"donderdag","s":"D"},{"w":"vendredi","d":"vrijdag","s":"D"},{"w":"samedi","d":"zaterdag","s":"D"},{"w":"dimanche","d":"zondag","s":"D"},{"w":"aujourd'hui","d":"vandaag","s":"D"},{"w":"apprends","d":"leer","s":"D"},{"w":"fais","d":"doe / maak","s":"D"},{"w":"travaille","d":"werk","s":"D"},{"w":"complète","d":"vul in / vul aan","s":"D"},{"w":"les devoirs","d":"het huiswerk","s":"D"},{"w":"le garçon","d":"de jongen","s":"D"},{"w":"la fille","d":"het meisje","s":"D"},{"w":"la page","d":"de bladzijde","s":"D"},{"w":"le mot","d":"het woord","s":"D"},{"w":"On a des devoirs ?","d":"Hebben we huiswerk?","s":"D"}]}];
+  let LISTS = [];
   let solo = null;           // { list, section, game, pool: [], won, played } — this device only
-  let pick = { list: LISTS[0].id, section: "" };
+  let pick = { list: "", section: "" };
   const cur = () => (solo ? solo.game : state);
 
   // ---------- helpers ----------
@@ -446,6 +451,26 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
   }
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
+  // Overhoren's own format: { id, title, subject, sections, items: [{ word, def, cls, section }] }
+  function fromOverhoren(src) {
+    return (Array.isArray(src) ? src : [])
+      .filter((l) => l && Array.isArray(l.items))
+      .map((l) => ({
+        id: String(l.id), title: String(l.title || "Lijst"), subject: String(l.subject || ""),
+        sections: l.sections && typeof l.sections === "object" ? l.sections : null,
+        items: l.items.filter((i) => i && typeof i.word === "string" && typeof i.def === "string")
+          .map((i) => ({ w: i.word, d: i.def, c: typeof i.cls === "string" ? i.cls : "", s: i.section })),
+      }));
+  }
+  function loadLists() {
+    let custom = [];
+    try { custom = JSON.parse(localStorage.getItem("overhoor:lists") || "[]"); } catch {}
+    const live = fromOverhoren(window.WORDLISTS);
+    const seen = new Set();
+    return (live.length ? live : BUILTIN).concat(fromOverhoren(custom))
+      .filter((l) => !seen.has(l.id) && seen.add(l.id) && soloItems(l, "").length >= 8);
+  }
+
   function soloNext() {
     if (!solo.pool.length) solo.pool = shuffle(soloItems(solo.list, solo.section));
     const it = solo.pool.pop();
@@ -477,6 +502,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
       wrap.appendChild(b);
     });
     const list = LISTS.find((l) => l.id === pick.list);
+    if (!list) return;
     const seg = $("sectionSeg");
     seg.innerHTML = "";
     $("sectionField").hidden = !list.sections;
@@ -516,6 +542,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     const g = cur();
     if (!g) {
       setupEl.hidden = false; gameEl.hidden = true;
+      $("togetherLead").textContent = mode === "live"
+        ? "Kies een woord en laat de ander raden. Iedereen met deze pagina open ziet hetzelfde spel. Tien foute letters en het mannetje hangt."
+        : "Kies een geheim woord en geef het scherm aan de ander om te raden. Tien foute letters en het mannetje hangt.";
       $("startBtn").disabled = readOnly;
       $("setupErr").textContent = readOnly ? "Je kunt meekijken, maar geen woord kiezen. Vraag de eigenaar om je als bewerker toe te voegen." : "";
       lastRound = null;
@@ -646,6 +675,9 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 
   // ---------- wiring ----------
   buildKeys();
+  LISTS = loadLists();
+  pick.list = LISTS[0] ? LISTS[0].id : "";
+  $("soloCard").hidden = !LISTS.length;
   renderLists();
 
   $("setupForm").addEventListener("submit", (e) => {
